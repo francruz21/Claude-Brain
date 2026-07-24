@@ -21,6 +21,12 @@ si existe: `Resuelve EX-107`.}}
 {{Pasos concretos para que el reviewer verifique el cambio manualmente, si
 aplica. Si hay tests automatizados, mencionalos acá también.}}
 
+## Capturas de pantalla
+
+{{Solo si el cambio toca frontend: capturas mostrando el resultado (antes/
+después si aplica). Las mismas capturas que se adjuntaron en el comentario
+del ticket. Si el cambio es solo backend, borrar esta sección.}}
+
 ## Riesgos conocidos
 
 {{Cualquier trade-off, limitación o riesgo que el reviewer debería conocer.

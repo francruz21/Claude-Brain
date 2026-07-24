@@ -180,6 +180,13 @@ Trabajar el ticket normalmente, priorizando cualquier skill o rule específica
 del repo de trabajo por sobre las genéricas de `claude-brain` (ej. si el repo
 tiene su propia convención de testing, esa gana).
 
+**Si el cambio toca frontend:** antes de pasar al commit, levantar el cambio
+en el navegador (skill `run`, o herramientas `claude-in-chrome` si no hay un
+flujo de la app ya definido) y capturar una o más screenshots mostrando el
+resultado — antes/después si aplica al bug o feature. Estas capturas no son
+para mostrar en el chat y descartar: se adjuntan en el paso 9 (comentario del
+ticket) y se incluyen en el paso 10 (descripción de la PR).
+
 ### 7. Commit — con confirmación
 
 Proponer el mensaje de commit según la convención configurada (o la
@@ -200,7 +207,11 @@ de trabajo recién creada.
 
 Inmediatamente después de un push confirmado, publicar un comentario en el
 ticket (vía el MCP del tracker correspondiente) con un resumen profesional y
-conciso de lo trabajado. No pedir confirmación adicional para este paso — ya
+conciso de lo trabajado. **Si el cambio incluyó frontend, adjuntar al
+comentario las screenshots capturadas en el paso 6** (ej. `create_attachment`/
+`prepare_attachment_upload` en Linear, o el mecanismo de adjuntos propio del
+tracker) — no alcanza con describir el cambio visual solo en texto si hay una
+captura disponible. No pedir confirmación adicional para este paso — ya
 quedó autorizado al confirmar el push. Ver ejemplo en
 [`reference/examples.md`](reference/examples.md).
 
@@ -208,8 +219,11 @@ quedó autorizado al confirmar el push. Ver ejemplo en
 
 Preguntar si se quiere abrir la PR contra la rama base, usando
 [`templates/pull-request.md`](../../templates/pull-request.md) del repo
-`claude-brain` (o el template propio del repo de trabajo si existe). Si el
-usuario confirma, crearla; si no, dejar la tarea cerrada en el paso 9.
+`claude-brain` (o el template propio del repo de trabajo si existe). **Si el
+cambio incluyó frontend, incluir en la descripción de la PR las mismas
+screenshots del paso 6** (sección "Capturas de pantalla" del template) — no
+alcanza con haberlas puesto solo en el comentario del ticket. Si el usuario
+confirma, crearla; si no, dejar la tarea cerrada en el paso 9.
 
 ### 11. Segunda vez en adelante
 
@@ -229,6 +243,7 @@ de push (paso 8) y la confirmación de PR (paso 10).
 - [ ] El commit se propuso y se confirmó explícitamente antes de ejecutarse.
 - [ ] El push se confirmó explícitamente antes de ejecutarse, y nunca fue contra la rama base.
 - [ ] Se publicó el comentario de resumen en el ticket tras el push.
+- [ ] Si el cambio fue de frontend, se capturaron screenshots y se incluyeron tanto en el comentario del ticket como en la descripción de la PR.
 - [ ] Se preguntó si se quiere abrir la PR.
 
 ## Ejemplos
@@ -275,6 +290,11 @@ publicado en el ticket.
 - **Ignorar un tag de ambiente en el ticket y usar la `baseBranch` default
   igual** — el tag es una señal explícita por ticket y gana sobre el default
   del repo.
+- **Omitir las screenshots en un cambio de frontend** — un comentario de
+  ticket o una PR que solo describe en texto un cambio visual obliga al
+  revisor a levantar la rama para ver qué cambió. Siempre capturar y adjuntar
+  en ambos lugares (comentario del ticket y descripción de la PR) cuando el
+  ticket toca UI.
 
 ## Buenas prácticas
 
