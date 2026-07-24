@@ -51,6 +51,9 @@ Preguntar, en este orden, **una pregunta a la vez**:
    propio `CLAUDE.md`, `CONTRIBUTING.md` o `rules/`, usar esa y solo confirmarla;
    si no, preguntar explícitamente (no asumir Conventional Commits por defecto).
 5. Rama base desde la que se crean las ramas de trabajo (default sugerido: `dev`).
+   Este default es solo el *fallback* cuando el ticket no trae ninguna señal
+   propia — ver paso 2 y paso 5 para el caso en que el ticket especifica su
+   propia rama base vía tag/label.
 
 Guardar todo en `.claude/ticket-workflow.config.json` en la raíz del repo
 correspondiente. No commitear este archivo salvo que el usuario lo pida
@@ -69,6 +72,11 @@ comparta la convención).
   pegame el título y la descripción del ticket para seguir." No usar WebFetch
   como sustituto salvo pedido explícito del usuario — la mayoría de estos
   links no son públicos.
+- **Revisar las labels/tags del ticket buscando una señal de ambiente/rama
+  de origen** (ej. `stage`, `dev`, `hotfix`, `prod`), independientemente del
+  tracker. Esta señal determina desde qué rama se corta la rama de trabajo
+  en el paso 5 — no confundir con el tipo de rama del paso 4, que es sobre
+  la naturaleza del cambio, no sobre su origen.
 
 ### 3. Analizar el workspace
 
@@ -88,21 +96,83 @@ Siempre, incluso si ya existe el config: "¿Qué tipo de rama es este ticket:
 fix, feature, bug, hotfix, chore o refactor?" (usar los tipos configurados en
 el paso 1). El tipo nunca se infiere automáticamente del contenido del ticket.
 
+**Excepción — tickets de Linear:** si el ticket se leyó por el MCP de Linear
+(`get_issue`), este paso se omite. Linear ya devuelve su propio nombre de
+rama canónico en el campo `gitBranchName` de la respuesta, y ese nombre no
+lleva prefijo de tipo — ver paso 5.
+
+**Excepción a la excepción — el repo valida el nombre de rama por CI:** antes
+de aplicar la excepción de arriba, revisar si el repo tiene un check de CI
+tipo "Branch name convention" (o un `docs/branch-conventions.md`) que exija
+un prefijo de tipo. Si existe, ese validador gana sobre el uso verbatim de
+`gitBranchName`: sí preguntar el tipo en este paso, y armar el nombre según
+el patrón del paso 5. Un `gitBranchName` de Linear con prefijo de usuario
+(ej. `franciscocruz/edw-138-...`) casi nunca matchea un regex que empiece
+con `(feat|fix|...)`, así que en repos con este check la excepción de Linear
+no aplica. Guardar el hallazgo en `.claude/ticket-workflow.config.json` del
+repo (campo `branchNameCI`) para no tener que redescubrirlo cada vez.
+
 ### 5. Crear la rama
 
-1. Actualizar la rama base configurada (`baseBranch`, ej. `dev`) desde el
-   remoto: `git fetch origin && git checkout dev && git pull origin dev`.
-2. Crear la rama de trabajo desde ahí, con el patrón
-   `{type}/{ticketId}-{descripción-corta}`, en el idioma configurado y en
-   `kebab-case`. Ejemplo, para
+1. Determinar la rama base para **este ticket específico** — nunca asumir
+   directamente la `baseBranch` configurada sin revisar antes la señal del
+   paso 2:
+   - **El ticket tiene un tag/label de ambiente** (ej. `stage`, `dev`,
+     `hotfix`) → esa es la rama base, aunque sea distinta de la `baseBranch`
+     default configurada en `.claude/ticket-workflow.config.json`. No pedir
+     confirmación extra — el tag ya es la señal explícita.
+   - **El ticket NO tiene ningún tag de ambiente** → preguntar explícitamente
+     antes de crear nada: "¿Desde qué rama parto esta rama de trabajo: `dev`,
+     `stage`, u otra?" No completar en silencio con la `baseBranch` default —
+     la ausencia de tag no equivale a "usar el default", equivale a "hace
+     falta preguntar".
+   - Aplica a cualquier tracker (Linear, Jira, etc.), no solo a Linear.
+2. Actualizar la rama base resultante desde el remoto: `git fetch origin &&
+   git checkout <rama-base> && git pull origin <rama-base>`.
+3. Crear la rama de trabajo desde ahí.
+
+   **Tickets de Linear, repo SIN CI de nombre de rama:** usar **tal
+   cual, sin modificar** el valor del campo `gitBranchName` que devuelve
+   `get_issue` como nombre de la rama — no el patrón
+   `{type}/{ticketId}-{descripción}` de abajo. Esto es lo que permite que
+   Linear trackee automáticamente la rama (y luego el PR) contra el ticket
+   en su propia UI; inventar un nombre propio rompe ese tracking aunque el
+   ticket ID aparezca en el nombre. Ejemplo: si `get_issue` devuelve
+   `"gitBranchName": "franciscocruz/edw-138-usuario-validador-del-hub-..."`,
+   la rama se llama exactamente eso, en ambos repos si el ticket toca
+   varios.
+
+   **Tickets de Linear, repo CON CI de nombre de rama** (ver excepción a la
+   excepción del paso 4): usar el patrón `{type}/{TICKET-ID}-{slug}`, donde
+   `{slug}` es la parte de `gitBranchName` posterior al ticket ID, sin el
+   prefijo de usuario. Ejemplo: `gitBranchName` =
+   `franciscocruz/edw-138-usuario-validador-del-hub-modificar-flujo-boton-rechazar`
+   con `type=feat` da `feat/EDW-138-usuario-validador-del-hub-modificar-flujo-boton-rechazar`.
+   Si la PR ya se creó contra el nombre viejo y hay que renombrar la rama en
+   GitHub, **no usar el endpoint de rename de la API** (`POST
+   .../branches/{branch}/rename`) — cierra automáticamente cualquier PR
+   abierta porque borra el ref viejo (`head_ref_deleted`) en vez de
+   actualizar su head. En cambio: renombrar local (`git branch -m`), pushear
+   la rama nueva, borrar la vieja, y abrir una PR nueva contra la rama
+   renombrada (la PR vieja queda cerrada como referencia histórica).
+
+   **Cualquier otro tracker** (Jira, Trello, GitHub Issues sin este campo):
+   usar el patrón `{type}/{ticketId}-{descripción-corta}`, en el idioma
+   configurado y en `kebab-case`. Ejemplo, para
    `https://linear.app/example/issue/EX-107/ERROR-FRONT-MODAL-COLOR` con
-   `type=fix` y `descriptionLanguage=es`:
+   `type=fix` y `descriptionLanguage=es` (caso hipotético sin `gitBranchName`
+   disponible):
 
    ```
    fix/EX-107-solucion-error-color-modal
    ```
 
    En inglés hubiera sido `fix/EX-107-fix-modal-color-error`.
+
+4. Si la rama ya se había creado con el patrón genérico antes de notar que
+   el ticket era de Linear, renombrarla en el momento con
+   `git branch -m <nombre-nuevo>` (preserva cambios sin commitear) en vez de
+   recrearla desde cero.
 
 ### 6. Implementar
 
@@ -154,6 +224,7 @@ de push (paso 8) y la confirmación de PR (paso 10).
 - [ ] El ticket se leyó por MCP o se pidió pegado manual — nunca se inventó contenido.
 - [ ] Se analizó si el workspace tiene un repo o varios, y se comunicó la decisión de en cuál(es) trabajar.
 - [ ] Se preguntó el tipo de rama para este ticket específico.
+- [ ] Se revisaron los tags/labels del ticket para la rama base; si no había ninguno, se preguntó explícitamente en vez de asumir el default.
 - [ ] La rama se creó desde la base actualizada del remoto, con el patrón configurado.
 - [ ] El commit se propuso y se confirmó explícitamente antes de ejecutarse.
 - [ ] El push se confirmó explícitamente antes de ejecutarse, y nunca fue contra la rama base.
@@ -181,9 +252,29 @@ publicado en el ticket.
 - **No decidir qué repos tocar** cuando el workspace tiene varios, y crear
   ramas en todos "por las dudas" — analizar el ticket primero, y confirmar la
   decisión con el usuario en vez de branchear todo.
+- **Inventar un nombre de rama para un ticket de Linear** en vez de usar el
+  `gitBranchName` tal cual — aunque el nombre propio incluya el ID del
+  ticket, rompe el auto-tracking de Linear entre la rama/PR y el issue. Pero
+  ver la excepción a la excepción del paso 4: si el repo valida el nombre de
+  rama por CI con un patrón de tipo obligatorio, ese check gana.
+- **Asumir que `gitBranchName` de Linear siempre pasa el CI del repo** — su
+  prefijo es el usuario (ej. `franciscocruz/...`), no un tipo, y varios repos
+  exigen `{type}/{TICKET-ID}-{slug}` vía un check de CI. Confirmar esto antes
+  de crear la rama, no después de que falle el PR.
+- **Renombrar una rama remota con PR abierta usando el endpoint de rename de
+  GitHub** (`branches/{branch}/rename`) — borra el ref viejo y GitHub cierra
+  la PR automáticamente (`head_ref_deleted`) en vez de re-apuntarla. Para
+  corregir un nombre de rama con PR ya abierta: rename local + push de la
+  rama nueva + PR nueva contra ese nombre.
 - **Publicar el comentario en el ticket antes del push real**, o pedir
   confirmación redundante para ese comentario — el punto de autorización es el
   push, no un paso aparte.
+- **Asumir la `baseBranch` default cuando el ticket no tiene tag de
+  ambiente** — la ausencia de señal significa preguntar, no completar en
+  silencio con `dev` u otro default configurado.
+- **Ignorar un tag de ambiente en el ticket y usar la `baseBranch` default
+  igual** — el tag es una señal explícita por ticket y gana sobre el default
+  del repo.
 
 ## Buenas prácticas
 
